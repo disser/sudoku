@@ -198,3 +198,46 @@ test('completed final digits are greyed out but remain clickable for highlightin
   fireEvent.pointerUp(oneButton);
   expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
 });
+
+const fullWrongGame: GameState = {
+  ...baseGame,
+  id: 'full-wrong',
+  puzzle: Array(81).fill(0) as any,
+  values: [...baseGame.solution.slice(0, 80), 9],
+  notes: Array.from({ length: 81 }, () => []),
+};
+
+const solvedGame: GameState = {
+  ...baseGame,
+  id: 'solved-game',
+  puzzle: Array(81).fill(0) as any,
+  values: [...baseGame.solution],
+  notes: Array.from({ length: 81 }, () => []),
+};
+
+test('full but incorrect board shows a popup and check errors highlights wrong values', () => {
+  saveGame(fullWrongGame);
+  render(<App />);
+
+  expect(screen.getByRole('heading', { name: /something/i })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /finished/i })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /check for errors/i }));
+  expect(screen.queryByRole('heading', { name: /something/i })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'cell 81' })).toHaveClass('incorrect');
+  expect(JSON.parse(localStorage.getItem('sudoku.stats.v1') ?? '[]')).toEqual([]);
+});
+
+test('correct solve shows celebration before finished dialog and records solved stats once', () => {
+  vi.useFakeTimers();
+  saveGame(solvedGame);
+  render(<App />);
+
+  expect(screen.getByText(/solved/i)).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /finished/i })).not.toBeInTheDocument();
+
+  act(() => vi.advanceTimersByTime(1500));
+  expect(screen.getByRole('heading', { name: /finished/i })).toBeInTheDocument();
+  const records = JSON.parse(localStorage.getItem('sudoku.stats.v1') ?? '[]');
+  expect(records.filter((record: { kind: string }) => record.kind === 'solved')).toHaveLength(1);
+});
