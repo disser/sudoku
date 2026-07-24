@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, expect, test } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { App } from './App';
 import { GameState } from './state/game';
 
@@ -23,7 +23,20 @@ const tapPad = (name: string) => {
   fireEvent.pointerUp(button);
 };
 
-beforeEach(() => localStorage.clear());
+const saveGame = (game: GameState = baseGame) => localStorage.setItem('sudoku.currentGame.v1', JSON.stringify(game));
+const setVisibility = (visibilityState: DocumentVisibilityState) => {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => visibilityState });
+};
+
+beforeEach(() => {
+  localStorage.clear();
+  setVisibility('visible');
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  setVisibility('visible');
+});
 
 test('renders difficulty choices', () => {
   render(<App />);
@@ -31,8 +44,27 @@ test('renders difficulty choices', () => {
   expect(screen.getByRole('button', { name: /easy/i })).toBeInTheDocument();
 });
 
+test('timer keeps advancing while visible, pauses while hidden, and resumes when visible', () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(0);
+  saveGame({ ...baseGame, elapsedMs: 0 });
+  render(<App />);
+
+  expect(screen.getByText('0:00')).toBeInTheDocument();
+  act(() => vi.advanceTimersByTime(3000));
+  expect(screen.getByText('0:03')).toBeInTheDocument();
+
+  setVisibility('hidden');
+  act(() => vi.advanceTimersByTime(5000));
+  expect(screen.getByText('0:03')).toBeInTheDocument();
+
+  setVisibility('visible');
+  act(() => vi.advanceTimersByTime(2000));
+  expect(screen.getByText('0:05')).toBeInTheDocument();
+});
+
 test('when no cell is selected, number pad toggles matching value and note highlights', () => {
-  localStorage.setItem('sudoku.currentGame.v1', JSON.stringify(baseGame));
+  saveGame();
   render(<App />);
 
   tapPad('1');
@@ -50,8 +82,8 @@ test('when no cell is selected, number pad toggles matching value and note highl
   expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
 });
 
-test('outside clicks clear selection and highlight, and selecting a cell clears highlight', () => {
-  localStorage.setItem('sudoku.currentGame.v1', JSON.stringify(baseGame));
+test('outside clicks clear selection and highlight, while selecting a cell preserves highlight', () => {
+  saveGame();
   render(<App />);
 
   tapPad('1');
@@ -59,13 +91,44 @@ test('outside clicks clear selection and highlight, and selecting a cell clears 
 
   fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
-  expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
+  expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
 
   fireEvent.click(screen.getByRole('main'));
   expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveClass('selected');
-
-  tapPad('1');
-  expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
-  fireEvent.click(screen.getByRole('main'));
   expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
+});
+
+test('keyboard enters values, shift-number notes, erase keys clear, and keyboard toggles highlight without selection', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.keyDown(window, { key: '2' });
+  expect(screen.getByRole('button', { name: 'cell 4' })).toHaveClass('highlight');
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: '6' });
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('6');
+
+  fireEvent.keyDown(window, { key: 'Backspace' });
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveTextContent('6');
+
+  fireEvent.keyDown(window, { key: '7', shiftKey: true });
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('7');
+});
+
+test('entering the highlighted digit preserves highlight, while entering another digit clears it', () => {
+  saveGame();
+  render(<App />);
+
+  tapPad('2');
+  expect(screen.getByRole('button', { name: 'cell 4' })).toHaveClass('highlight');
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  tapPad('2');
+  expect(screen.getByRole('button', { name: 'cell 4' })).toHaveClass('highlight');
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('highlight');
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 7' }));
+  tapPad('7');
+  expect(screen.getByRole('button', { name: 'cell 4' })).not.toHaveClass('highlight');
 });
