@@ -17,6 +17,13 @@ const baseGame: GameState = {
   showErrors: false,
 };
 
+const completedOnesGame: GameState = {
+  ...baseGame,
+  puzzle: [1, 0, 0, 0, 0, 0, 0, 0, 0, ...Array(72).fill(0)] as any,
+  values: [0, 1, 1, 1, 1, 1, 1, 1, 1, ...Array(72).fill(0)],
+  notes: Array.from({ length: 81 }, () => []),
+};
+
 const tapPad = (name: string) => {
   const button = screen.getByRole('button', { name });
   fireEvent.pointerDown(button);
@@ -126,6 +133,17 @@ test('keyboard enters values, shift-number notes, space erases, and keyboard tog
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
 });
 
+test('shifted top-row symbols use keyboard code for note entry', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: '%', code: 'Digit5', shiftKey: true });
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('5');
+  expect(screen.getByRole('button', { name: 'cell 6' }).querySelector('.value')).toBeNull();
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+});
+
 test('cmd-z and ctrl-z undo previous moves', () => {
   saveGame();
   render(<App />);
@@ -168,4 +186,15 @@ test('long-pressing a pad number creates only a note and does not enter a final 
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('8');
   expect(screen.getByRole('button', { name: 'cell 6' }).querySelector('.value')).toBeNull();
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+});
+
+test('completed final digits are greyed out but remain clickable for highlighting', () => {
+  saveGame(completedOnesGame);
+  render(<App />);
+
+  const oneButton = screen.getByRole('button', { name: '1' });
+  expect(oneButton).toHaveClass('completed');
+  fireEvent.pointerDown(oneButton);
+  fireEvent.pointerUp(oneButton);
+  expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
 });

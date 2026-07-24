@@ -13,6 +13,11 @@ import { FinishedDialog } from './components/FinishedDialog';
 import { StatsView } from './components/StatsView';
 
 const newGame = (d: Difficulty) => createGame(d, generatePuzzle(d));
+const digitFromKeyboardEvent = (event: KeyboardEvent): Digit | null => {
+  if (/^[1-9]$/.test(event.key)) return Number(event.key) as Digit;
+  const codeMatch = /^(Digit|Numpad)([1-9])$/.exec(event.code);
+  return codeMatch ? Number(codeMatch[2]) as Digit : null;
+};
 
 export function App() {
   const [game, setGame] = useState<GameState | null>(() => loadCurrentGame());
@@ -63,12 +68,13 @@ export function App() {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (shouldIgnoreKeyboard(event.target)) return;
+      const digit = digitFromKeyboardEvent(event);
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         setGame(current => current ? undo(current) : current);
-      } else if (/^[1-9]$/.test(event.key)) {
+      } else if (digit !== null) {
         event.preventDefault();
-        handleDigit(Number(event.key) as Digit, event.shiftKey);
+        handleDigit(digit, event.shiftKey);
       } else if (event.key === 'Backspace' || event.key === 'Delete' || event.key === '0' || event.key === ' ') {
         event.preventDefault();
         handleErase();
@@ -79,11 +85,14 @@ export function App() {
   }, [handleDigit, handleErase]);
   if (chooseDifficulty) return <div className="app-shell" data-testid="app-shell"><main><DifficultyDialog onChoose={start} />{statsOpen && <StatsView records={stats} onClose={()=>setStatsOpen(false)} />}</main></div>;
   if (!game) return <div className="app-shell" data-testid="app-shell"><main><DifficultyDialog onChoose={start} /></main></div>;
+  const counts = Array(10).fill(0);
+  for (let cell = 0; cell < 81; cell++) counts[game.puzzle[cell] || game.values[cell]]++;
+  const completedDigits = ([1,2,3,4,5,6,7,8,9] as Digit[]).filter(digit => counts[digit] >= 9);
 
   return <div className="app-shell" data-testid="app-shell" onClick={() => { setSelected(null); setHighlightDigit(null); }}><main onClick={e => e.stopPropagation()}>
     <Header difficulty={game.difficulty} elapsedMs={game.elapsedMs} onUndo={()=>setGame(undo(game))} onMenu={()=>setMenu(true)} />
     <Board game={game} selected={selected} highlightDigit={highlightDigit} onSelect={setSelected} />
-    <NumberPad onTap={d=>handleDigit(d, false)} onLongPress={d=>handleDigit(d, true)} onErase={handleErase} />
+    <NumberPad completedDigits={completedDigits} onTap={d=>handleDigit(d, false)} onLongPress={d=>handleDigit(d, true)} onErase={handleErase} />
     {menu && <MenuDialog showErrors={game.showErrors} onToggleErrors={()=>setGame({...game, showErrors:!game.showErrors})} onReset={()=>{ if(confirm('Reset this puzzle?')) setGame(resetGame(game)); setMenu(false); }} onNew={()=>abandonAnd(()=>setChooseDifficulty(true))} onStats={()=>setStatsOpen(true)} onClose={()=>setMenu(false)} />}
     {statsOpen && <StatsView records={stats} onClose={()=>setStatsOpen(false)} />}
     {game.status === 'solved' && <FinishedDialog difficulty={game.difficulty} onSame={()=>start(game.difficulty)} onDifficulty={()=>setChooseDifficulty(true)} onStats={()=>setStatsOpen(true)} />}
