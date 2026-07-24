@@ -1,0 +1,4 @@
+import { expect, test } from 'vitest';
+import { createGame, enterValue, eraseCell, resetGame, toggleNote, undo } from './game';
+const generated = { id:'t', givens:1, puzzle:[1,...Array(80).fill(0)] as any, solution:[1,2,3,4,5,6,7,8,9,4,5,6,7,8,9,1,2,3,7,8,9,1,2,3,4,5,6,2,3,4,5,6,7,8,9,1,5,6,7,8,9,1,2,3,4,8,9,1,2,3,4,5,6,7,3,4,5,6,7,8,9,1,2,6,7,8,9,1,2,3,4,5,9,1,2,3,4,5,6,7,8] as any };
+test('moves, notes, undo, reset',()=>{let g=createGame('easy', generated); expect(enterValue(g,0,2).values[0]).toBe(0); g=toggleNote(g,1,2); expect(g.notes[1]).toEqual([2]); g=toggleNote(g,1,2); expect(g.notes[1]).toEqual([]); g=toggleNote(g,9,2); g=enterValue(g,1,2); expect(g.values[1]).toBe(2); expect(g.notes[9]).toEqual([]); g=enterValue(g,1,2); expect(g.values[1]).toBe(0); g=undo(g); expect(g.values[1]).toBe(2); g=eraseCell(g,1); expect(g.values[1]).toBe(0); g=resetGame(g); expect(g.history).toHaveLength(0); expect(g.notes.flat()).toHaveLength(0);});

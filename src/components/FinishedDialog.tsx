@@ -1,0 +1,2 @@
+import { Difficulty } from '../sudoku/types';
+export function FinishedDialog({ onSame, onDifficulty, onStats }: { difficulty: Difficulty; onSame:()=>void; onDifficulty:()=>void; onStats:()=>void }) { return <div className="overlay"><div className="dialog"><h2>Finished!</h2><button onClick={onSame}>New puzzle, same difficulty</button><button onClick={onDifficulty}>Pick new difficulty</button><button onClick={onStats}>Historical stats</button></div></div>; }
