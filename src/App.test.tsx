@@ -241,3 +241,31 @@ test('correct solve shows celebration before finished dialog and records solved 
   const records = JSON.parse(localStorage.getItem('sudoku.stats.v1') ?? '[]');
   expect(records.filter((record: { kind: string }) => record.kind === 'solved')).toHaveLength(1);
 });
+
+test('u key undoes the previous move', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: '6' });
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('6');
+
+  fireEvent.keyDown(window, { key: 'u' });
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveTextContent('6');
+});
+
+test('tab clears selected cell and digit highlight', () => {
+  saveGame();
+  render(<App />);
+
+  tapPad('1');
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+
+  const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+  act(() => window.dispatchEvent(event));
+  expect(event.defaultPrevented).toBe(true);
+  expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveClass('selected');
+});

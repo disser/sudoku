@@ -97,6 +97,13 @@ export function App() {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         setGame(current => current ? undo(current) : current);
+      } else if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.toLowerCase() === 'u') {
+        event.preventDefault();
+        setGame(current => current ? undo(current) : current);
+      } else if (event.key === 'Tab') {
+        event.preventDefault();
+        setSelected(null);
+        setHighlightDigit(null);
       } else if (digit !== null) {
         event.preventDefault();
         handleDigit(digit, event.shiftKey);
