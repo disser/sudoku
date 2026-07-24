@@ -22,6 +22,13 @@ const tapPad = (name: string) => {
   fireEvent.pointerDown(button);
   fireEvent.pointerUp(button);
 };
+const longPressPad = (name: string) => {
+  vi.useFakeTimers();
+  const button = screen.getByRole('button', { name });
+  fireEvent.pointerDown(button);
+  act(() => vi.advanceTimersByTime(550));
+  fireEvent.pointerUp(button);
+};
 
 const saveGame = (game: GameState = baseGame) => localStorage.setItem('sudoku.currentGame.v1', JSON.stringify(game));
 const setVisibility = (visibilityState: DocumentVisibilityState) => {
@@ -82,7 +89,7 @@ test('when no cell is selected, number pad toggles matching value and note highl
   expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
 });
 
-test('outside clicks clear selection and highlight, while selecting a cell preserves highlight', () => {
+test('outside shell clicks clear selection and highlight, while selecting a cell preserves highlight', () => {
   saveGame();
   render(<App />);
 
@@ -93,12 +100,12 @@ test('outside clicks clear selection and highlight, while selecting a cell prese
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
   expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
 
-  fireEvent.click(screen.getByRole('main'));
+  fireEvent.click(screen.getByTestId('app-shell'));
   expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveClass('selected');
   expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
 });
 
-test('keyboard enters values, shift-number notes, erase keys clear, and keyboard toggles highlight without selection', () => {
+test('keyboard enters values, shift-number notes, space erases, and keyboard toggles highlight without selection', () => {
   saveGame();
   render(<App />);
 
@@ -108,12 +115,32 @@ test('keyboard enters values, shift-number notes, erase keys clear, and keyboard
   fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
   fireEvent.keyDown(window, { key: '6' });
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('6');
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveClass('selected');
 
-  fireEvent.keyDown(window, { key: 'Backspace' });
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: ' ' });
   expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveTextContent('6');
 
   fireEvent.keyDown(window, { key: '7', shiftKey: true });
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('7');
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+});
+
+test('cmd-z and ctrl-z undo previous moves', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: '6' });
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('6');
+
+  fireEvent.keyDown(window, { key: 'z', metaKey: true });
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveTextContent('6');
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  fireEvent.keyDown(window, { key: '6' });
+  fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveTextContent('6');
 });
 
 test('entering the highlighted digit preserves highlight, while entering another digit clears it', () => {
@@ -126,9 +153,19 @@ test('entering the highlighted digit preserves highlight, while entering another
   fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
   tapPad('2');
   expect(screen.getByRole('button', { name: 'cell 4' })).toHaveClass('highlight');
-  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('highlight');
 
   fireEvent.click(screen.getByRole('button', { name: 'cell 7' }));
   tapPad('7');
   expect(screen.getByRole('button', { name: 'cell 4' })).not.toHaveClass('highlight');
+});
+
+test('long-pressing a pad number creates only a note and does not enter a final value on release', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  longPressPad('8');
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('8');
+  expect(screen.getByRole('button', { name: 'cell 6' }).querySelector('.value')).toBeNull();
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
 });
