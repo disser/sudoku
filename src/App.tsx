@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Difficulty } from './sudoku/types';
+import { Difficulty, Digit } from './sudoku/types';
 import { generatePuzzle } from './sudoku/generator';
 import { createGame, enterValue, eraseCell, GameState, isSolved, resetGame, toggleNote, undo } from './state/game';
 import { clearCurrentGame, loadCurrentGame, loadStats, saveCurrentGame, saveStats } from './storage/storage';
@@ -16,7 +16,8 @@ const newGame = (d: Difficulty) => createGame(d, generatePuzzle(d));
 
 export function App() {
   const [game, setGame] = useState<GameState | null>(() => loadCurrentGame());
-  const [selected, setSelected] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [highlightDigit, setHighlightDigit] = useState<Digit | null>(null);
   const [menu, setMenu] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [chooseDifficulty, setChooseDifficulty] = useState(!game);
@@ -28,15 +29,15 @@ export function App() {
   useEffect(() => { saveStats(stats); }, [stats]);
   useEffect(() => { if (game && isSolved(game) && solvedRecorded.current !== game.id) { solvedRecorded.current = game.id; const records = recordSolved(stats, game); setStats(records); clearCurrentGame(); } }, [game, stats]);
 
-  const start = (d: Difficulty) => { setGame(newGame(d)); solvedRecorded.current = null; setChooseDifficulty(false); setMenu(false); };
+  const start = (d: Difficulty) => { setGame(newGame(d)); setSelected(null); setHighlightDigit(null); solvedRecorded.current = null; setChooseDifficulty(false); setMenu(false); };
   const abandonAnd = (fn:()=>void) => { if (game?.status === 'playing' && !confirm('Abandon this puzzle?')) return; if (game?.status === 'playing') setStats(recordAbandoned(stats, game)); fn(); };
   if (chooseDifficulty) return <main><DifficultyDialog onChoose={start} />{statsOpen && <StatsView records={stats} onClose={()=>setStatsOpen(false)} />}</main>;
   if (!game) return <main><DifficultyDialog onChoose={start} /></main>;
 
-  return <main>
+  return <main onClick={() => { setSelected(null); setHighlightDigit(null); }}>
     <Header difficulty={game.difficulty} elapsedMs={game.elapsedMs} onUndo={()=>setGame(undo(game))} onMenu={()=>setMenu(true)} />
-    <Board game={game} selected={selected} onSelect={setSelected} />
-    <NumberPad onTap={d=>setGame(enterValue(game, selected, d))} onLongPress={d=>setGame(toggleNote(game, selected, d))} onErase={()=>setGame(eraseCell(game, selected))} />
+    <Board game={game} selected={selected} highlightDigit={highlightDigit} onSelect={(cell) => { setSelected(cell); setHighlightDigit(null); }} />
+    <NumberPad onTap={d=>{ if (selected === null) setHighlightDigit(current => current === d ? null : d); else setGame(enterValue(game, selected, d)); }} onLongPress={d=>{ if (selected !== null) setGame(toggleNote(game, selected, d)); }} onErase={()=>{ if (selected !== null) setGame(eraseCell(game, selected)); }} />
     {menu && <MenuDialog showErrors={game.showErrors} onToggleErrors={()=>setGame({...game, showErrors:!game.showErrors})} onReset={()=>{ if(confirm('Reset this puzzle?')) setGame(resetGame(game)); setMenu(false); }} onNew={()=>abandonAnd(()=>setChooseDifficulty(true))} onStats={()=>setStatsOpen(true)} onClose={()=>setMenu(false)} />}
     {statsOpen && <StatsView records={stats} onClose={()=>setStatsOpen(false)} />}
     {game.status === 'solved' && <FinishedDialog difficulty={game.difficulty} onSame={()=>start(game.difficulty)} onDifficulty={()=>setChooseDifficulty(true)} onStats={()=>setStatsOpen(true)} />}
