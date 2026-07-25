@@ -15,6 +15,7 @@ import { WrongBoardDialog } from './components/WrongBoardDialog';
 import { CelebrationOverlay } from './components/CelebrationOverlay';
 
 const newGame = (d: Difficulty) => createGame(d, generatePuzzle(d));
+const haptic = () => navigator.vibrate?.(10);
 const digitFromKeyboardEvent = (event: KeyboardEvent): Digit | null => {
   if (/^[1-9]$/.test(event.key)) return Number(event.key) as Digit;
   const codeMatch = /^(Digit|Numpad)([1-9])$/.exec(event.code);
@@ -121,9 +122,9 @@ export function App() {
   for (let cell = 0; cell < 81; cell++) counts[game.puzzle[cell] || game.values[cell]]++;
   const completedDigits = ([1,2,3,4,5,6,7,8,9] as Digit[]).filter(digit => counts[digit] >= 9);
 
-  return <div className="app-shell" data-testid="app-shell" onClick={() => { setSelected(null); setHighlightDigit(null); }}><main onClick={e => e.stopPropagation()}>
+  return <div className="app-shell" data-testid="app-shell" onClick={() => { setSelected(null); setHighlightDigit(null); }}><main data-testid="game-area" onClick={() => { setSelected(null); setHighlightDigit(null); }}>
     <Header difficulty={game.difficulty} elapsedMs={game.elapsedMs} onUndo={()=>setGame(undo(game))} onMenu={()=>setMenu(true)} />
-    <Board game={game} selected={selected} highlightDigit={highlightDigit} onSelect={setSelected} />
+    <Board game={game} selected={selected} highlightDigit={highlightDigit} onSelect={cell=>{ haptic(); setSelected(cell); }} />
     <NumberPad completedDigits={completedDigits} onTap={d=>handleDigit(d, false)} onLongPress={d=>handleDigit(d, true)} onErase={handleErase} />
     {menu && <MenuDialog showErrors={game.showErrors} onToggleErrors={()=>setGame({...game, showErrors:!game.showErrors})} onReset={()=>{ if(confirm('Reset this puzzle?')) setGame(resetGame(game)); setMenu(false); }} onNew={()=>abandonAnd(()=>setChooseDifficulty(true))} onStats={()=>setStatsOpen(true)} onClose={()=>setMenu(false)} />}
     {statsOpen && <StatsView records={stats} onClose={()=>setStatsOpen(false)} />}

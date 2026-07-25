@@ -29,11 +29,11 @@ const tapPad = (name: string) => {
   fireEvent.pointerDown(button);
   fireEvent.pointerUp(button);
 };
-const longPressPad = (name: string) => {
+const longPressPad = (name: string, ms = 550) => {
   vi.useFakeTimers();
   const button = screen.getByRole('button', { name });
   fireEvent.pointerDown(button);
-  act(() => vi.advanceTimersByTime(550));
+  act(() => vi.advanceTimersByTime(ms));
   fireEvent.pointerUp(button);
 };
 
@@ -112,6 +112,20 @@ test('outside shell clicks clear selection and highlight, while selecting a cell
   expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
 });
 
+test('clicking empty space below the number pad clears selection and highlight', () => {
+  saveGame();
+  render(<App />);
+
+  tapPad('1');
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+  expect(screen.getByRole('button', { name: 'cell 1' })).toHaveClass('highlight');
+
+  fireEvent.click(screen.getByTestId('game-area'));
+  expect(screen.getByRole('button', { name: 'cell 6' })).not.toHaveClass('selected');
+  expect(screen.getByRole('button', { name: 'cell 1' })).not.toHaveClass('highlight');
+});
+
 test('keyboard enters values, shift-number notes, space erases, and keyboard toggles highlight without selection', () => {
   saveGame();
   render(<App />);
@@ -186,6 +200,28 @@ test('long-pressing a pad number creates only a note and does not enter a final 
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('8');
   expect(screen.getByRole('button', { name: 'cell 6' }).querySelector('.value')).toBeNull();
   expect(screen.getByRole('button', { name: 'cell 6' })).toHaveClass('selected');
+});
+
+test('mobile long-press note entry triggers before browser text selection usually starts', () => {
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  longPressPad('8', 325);
+  expect(screen.getByRole('button', { name: 'cell 6' })).toHaveTextContent('8');
+  expect(screen.getByRole('button', { name: 'cell 6' }).querySelector('.value')).toBeNull();
+});
+
+test('touch interactions request light haptic feedback when supported', () => {
+  const vibrate = vi.fn();
+  Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true });
+  saveGame();
+  render(<App />);
+
+  fireEvent.click(screen.getByRole('button', { name: 'cell 6' }));
+  tapPad('7');
+
+  expect(vibrate).toHaveBeenCalledWith(10);
 });
 
 test('completed final digits are greyed out but remain clickable for highlighting', () => {
